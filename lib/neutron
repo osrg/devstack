@@ -472,13 +472,7 @@ function start_neutron_service_and_check() {
 # Start running processes, including screen
 function start_neutron_agents() {
     # Start up the neutron agents if enabled
-    agent=`basename $AGENT_BINARY`
-    if [ "$agent" = "neutron-ryu-ml2-agent" ]; then
-        RYU_CONF="--config-file /etc/ryu/ryu.conf"
-    else
-        RYU_CONF=""
-    fi
-    screen_it q-agt "cd $NEUTRON_DIR && python $AGENT_BINARY --config-file $NEUTRON_CONF --config-file /$Q_PLUGIN_CONF_FILE $RYU_CONF"
+    screen_it q-agt "cd $NEUTRON_DIR && python $AGENT_BINARY --config-file $NEUTRON_CONF --config-file /$Q_PLUGIN_CONF_FILE"
     screen_it q-dhcp "cd $NEUTRON_DIR && python $AGENT_DHCP_BINARY --config-file $NEUTRON_CONF --config-file=$Q_DHCP_CONF_FILE"
 
     L3_CONF_FILES="--config-file $NEUTRON_CONF --config-file=$Q_L3_CONF_FILE"
