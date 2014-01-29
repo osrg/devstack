@@ -35,12 +35,20 @@ function neutron_plugin_configure_debug_command() {
 }
 
 function neutron_plugin_configure_dhcp_agent() {
-    iniset $Q_DHCP_CONF_FILE DEFAULT ryu_api_host $RYU_API_HOST:$RYU_API_PORT
+    if [ "$Q_PLUGIN" = 'ml2' ]; then
+        iniset $Q_DHCP_CONF_FILE DEFAULT dhcp_agent_manager neutron.agent.dhcp_agent.DhcpAgentWithStateReport
+    else
+        iniset $Q_DHCP_CONF_FILE DEFAULT ryu_api_host $RYU_API_HOST:$RYU_API_PORT
+    fi
 }
 
 function neutron_plugin_configure_l3_agent() {
-    iniset $Q_L3_CONF_FILE DEFAULT ryu_api_host $RYU_API_HOST:$RYU_API_PORT
-    _neutron_ovs_base_configure_l3_agent
+    if [ "$Q_PLUGIN" = 'ml2' ]; then
+        _neutron_ovs_base_configure_l3_agent
+        iniset $Q_L3_CONF_FILE DEFAULT l3_agent_manager neutron.agent.l3_agent.L3NATAgentWithStateReport
+    else
+        iniset $Q_L3_CONF_FILE DEFAULT ryu_api_host $RYU_API_HOST:$RYU_API_PORT
+    fi
 }
 
 function neutron_plugin_configure_plugin_agent() {
@@ -49,14 +57,48 @@ function neutron_plugin_configure_plugin_agent() {
     if [ -n "$RYU_INTERNAL_INTERFACE" ]; then
         sudo ovs-vsctl --no-wait -- --may-exist add-port $OVS_BRIDGE $RYU_INTERNAL_INTERFACE
     fi
-    iniset /$Q_PLUGIN_CONF_FILE ovs integration_bridge $OVS_BRIDGE
-    AGENT_BINARY="$NEUTRON_DIR/neutron/plugins/ryu/agent/ryu_neutron_agent.py"
+    if [ "$Q_PLUGIN" = 'ml2' ]; then
+        iniset /$Q_PLUGIN_CONF_FILE ryu integration_bridge $OVS_BRIDGE
+        AGENT_BINARY="$RYU_DIR/bin/neutron-ryu-ml2-agent"
+    else
+        iniset /$Q_PLUGIN_CONF_FILE ovs integration_bridge $OVS_BRIDGE
+        AGENT_BINARY="$NEUTRON_DIR/neutron/plugins/ryu/agent/ryu_neutron_agent.py"
+    fi
 
     _neutron_ovs_base_configure_firewall_driver
+    for I in "${Q_AGENT_EXTRA_AGENT_OPTS[@]}"; do
+        # Replace the first '=' with ' ' for iniset syntax
+        iniset /$Q_PLUGIN_CONF_FILE agent ${I/=/ }
+    done
+    iniset /$Q_PLUGIN_CONF_FILE ryu local_ip $HOST_IP
+
+    # Setup physical network bridge mappings.  Override
+    # ``OVS_VLAN_RANGES`` and ``OVS_BRIDGE_MAPPINGS`` in ``localrc`` for more
+    # complex physical network configurations.
+    if [[ "$OVS_BRIDGE_MAPPINGS" = "" ]] && [[ "$PHYSICAL_NETWORK" != "" ]] && [[ "$OVS_PHYSICAL_BRIDGE" != "" ]]; then
+        OVS_BRIDGE_MAPPINGS=$PHYSICAL_NETWORK:$OVS_PHYSICAL_BRIDGE
+
+        # Configure bridge manually with physical interface as port for multi-node
+        sudo ovs-vsctl --no-wait -- --may-exist add-br $OVS_PHYSICAL_BRIDGE
+    fi
+    if [[ "$OVS_BRIDGE_MAPPINGS" != "" ]]; then
+        iniset /$Q_PLUGIN_CONF_FILE ryu bridge_mappings $OVS_BRIDGE_MAPPINGS
+    fi
+
+    # Enable tunnel networks if selected
+    if [[ $OVS_ENABLE_TUNNELING = "True" ]]; then
+        iniset /$Q_PLUGIN_CONF_FILE ryu enable_tunneling True
+    fi
 }
 
 function neutron_plugin_configure_service() {
-    iniset /$Q_PLUGIN_CONF_FILE ovs openflow_rest_api $RYU_API_HOST:$RYU_API_PORT
+    if [ "$Q_PLUGIN" = 'ml2' ]; then
+        iniset /$Q_PLUGIN_CONF_FILE ryu openflow_rest_api $RYU_API_HOST:$RYU_API_PORT
+        iniset /$Q_PLUGIN_CONF_FILE ryu tunnel_interface $TUNNEL_INTERFACE
+        iniset /$Q_PLUGIN_CONF_FILE ryu ovsdb_interface $OVSDB_INTERFACE
+    else
+        iniset /$Q_PLUGIN_CONF_FILE ovs openflow_rest_api $RYU_API_HOST:$RYU_API_PORT
+    fi
 
     _neutron_ovs_base_configure_firewall_driver
 }
@@ -64,7 +106,9 @@ function neutron_plugin_configure_service() {
 function neutron_plugin_setup_interface_driver() {
     local conf_file=$1
     iniset $conf_file DEFAULT interface_driver neutron.agent.linux.interface.OVSInterfaceDriver
-    iniset $conf_file DEFAULT ovs_use_veth True
+    if [ "$Q_PLUGIN" != 'ml2' ]; then
+        iniset $conf_file DEFAULT ovs_use_veth True
+    fi
 }
 
 function has_neutron_plugin_security_group() {
