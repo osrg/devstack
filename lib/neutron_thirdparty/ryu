@@ -68,9 +68,7 @@ function install_ryu() {
 }
 
 function start_ryu() {
-    if [ "$Q_PLUGIN" != 'ml2' ]; then
-        screen_it ryu "cd $RYU_DIR && $RYU_DIR/bin/ryu-manager --config-file $RYU_CONF"
-    fi
+    screen_it ryu "cd $RYU_DIR && $RYU_DIR/bin/ryu-manager --config-file $RYU_CONF"
 }
 
 function stop_ryu() {
