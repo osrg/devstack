@@ -69,7 +69,7 @@ function neutron_plugin_configure_plugin_agent() {
     if [[ "$OVS_BRIDGE_MAPPINGS" != "" ]]; then
         iniset /$Q_PLUGIN_CONF_FILE ofs bridge_mappings $OVS_BRIDGE_MAPPINGS
     fi
-    AGENT_BINARY="$RYU_DIR/bin/ofswitch_neutron_agent"
+    AGENT_BINARY="$RYU_DIR/bin/neutron_ofs_agent"
 
     # Define extra "AGENT" configuration options when q-agt is configured by defining
     # defining the array ``Q_AGENT_EXTRA_AGENT_OPTS``.
