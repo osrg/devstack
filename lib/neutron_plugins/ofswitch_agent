@@ -1,5 +1,5 @@
-# Neutron Ryu plugin
-# ------------------
+# OpenFlow Switch plugin
+# ----------------------
 
 # Save trace setting
 MY_XTRACE=$(set +o | grep xtrace)
@@ -15,7 +15,7 @@ function neutron_plugin_create_nova_conf() {
 function neutron_plugin_install_agent_packages() {
     _neutron_ovs_base_install_agent_packages
 
-    # neutron_ryu_agent requires ryu module
+    # This agent uses ryu to talk with switches
     install_package $(get_packages "ryu")
     install_ryu
     configure_ryu
@@ -43,7 +43,7 @@ function neutron_plugin_configure_plugin_agent() {
     # Check a supported openflow version
     OF_VERSION=`ovs-ofctl --version | grep "OpenFlow versions" | awk '{print $3}' | cut -d':' -f2`
     if [ `vercmp_numbers "$OF_VERSION" "0x3"` -lt "0" ]; then
-        die $LINENO "OpenFlow 1.3+ is required for Ryu agent for ML2."
+        die $LINENO "This agent requires OpenFlow 1.3+ capable switch."
     fi
 
     # Enable tunnel networks if selected
@@ -70,7 +70,7 @@ function neutron_plugin_configure_plugin_agent() {
     if [[ "$OVS_BRIDGE_MAPPINGS" != "" ]]; then
         iniset /$Q_PLUGIN_CONF_FILE ryu bridge_mappings $OVS_BRIDGE_MAPPINGS
     fi
-    AGENT_BINARY="$RYU_DIR/bin/neutron-ryu-ml2-agent"
+    AGENT_BINARY="$RYU_DIR/bin/ofswitch_neutron_agent"
 
     # Define extra "AGENT" configuration options when q-agt is configured by defining
     # defining the array ``Q_AGENT_EXTRA_AGENT_OPTS``.
