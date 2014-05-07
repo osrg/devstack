@@ -4,7 +4,6 @@ proto
 *.log
 *.log.[1-9]
 src
-localrc
 local.sh
 files/*.gz
 files/*.qcow2
@@ -20,4 +19,3 @@ devstack-docs-*
 docs/
 docs-files
 .localrc.auto
-local.conf
